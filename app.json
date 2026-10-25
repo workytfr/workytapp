@@ -86,6 +86,9 @@
             "DEFAULT"
           ]
         }
+      ],
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -128,9 +131,15 @@
       ]
     ],
     "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
       "eas": {
-        "projectId": "be9bae2d-35ac-4640-bd03-05a7c537b066"
+        "projectId": "3f7d324f-470c-413c-8628-046d7a057e6b"
       }
-    }
+    },
+    "owner": "nadsair"
   }
 }
