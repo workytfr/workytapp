@@ -7,23 +7,86 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "scheme": "workyt",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#f97316"
-    },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "fr.workyt.app"
+      "bundleIdentifier": "fr.workyt.app",
+      "associatedDomains": [
+        "applinks:workyt.fr"
+      ]
     },
     "android": {
       "package": "fr.workyt.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#f97316"
+        "backgroundColor": "#FF6A1A"
       },
-      "edgeToEdgeEnabled": true
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "workyt.fr",
+              "pathPrefix": "/forum"
+            },
+            {
+              "scheme": "https",
+              "host": "workyt.fr",
+              "pathPrefix": "/fiches"
+            },
+            {
+              "scheme": "https",
+              "host": "workyt.fr",
+              "pathPrefix": "/compte"
+            },
+            {
+              "scheme": "https",
+              "host": "workyt.fr",
+              "pathPrefix": "/clan"
+            },
+            {
+              "scheme": "https",
+              "host": "workyt.fr",
+              "pathPrefix": "/amis"
+            },
+            {
+              "scheme": "https",
+              "host": "workyt.fr",
+              "pathPrefix": "/defis"
+            },
+            {
+              "scheme": "https",
+              "host": "workyt.fr",
+              "pathPrefix": "/suivi"
+            },
+            {
+              "scheme": "https",
+              "host": "workyt.fr",
+              "pathPrefix": "/recompenses"
+            },
+            {
+              "scheme": "https",
+              "host": "workyt.fr",
+              "pathPrefix": "/calendrier"
+            },
+            {
+              "scheme": "https",
+              "host": "workyt.fr",
+              "pathPrefix": "/gems"
+            },
+            {
+              "scheme": "https",
+              "host": "workyt.fr",
+              "pathPrefix": "/kits"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -31,7 +94,38 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Workyt utilise ta galerie pour joindre des photos (fiches, copies d'évaluation).",
+          "cameraPermission": "Workyt utilise l'appareil photo pour prendre en photo ta copie d'évaluation."
+        }
+      ],
+      "expo-status-bar",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#FF6A1A"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#FF6A1A",
+          "sounds": [
+            "./assets/sounds/epee.wav",
+            "./assets/sounds/cor.wav",
+            "./assets/sounds/tambour.wav",
+            "./assets/sounds/foxy.wav",
+            "./assets/sounds/page.wav"
+          ]
+        }
+      ]
     ]
   }
 }

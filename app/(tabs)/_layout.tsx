@@ -1,57 +1,78 @@
 import { Tabs } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../lib/colors';
+import Icon from '../../components/Icon';
+import { StyleSheet, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { typography } from '../../lib/theme';
+import { useColors } from '../../lib/useColors';
+
+/** Hauteur utile des onglets (icône + libellé), hors safe area */
+const TAB_CONTENT_HEIGHT = 56;
+
+type IconName = string;
+
+const TABS: { name: string; title: string; icon: IconName; iconActive: IconName }[] = [
+    { name: 'index', title: 'Accueil', icon: 'home-outline', iconActive: 'home' },
+    { name: 'courses', title: 'Cours', icon: 'book-outline', iconActive: 'book' },
+    { name: 'fiches', title: 'Fiches', icon: 'document-text-outline', iconActive: 'document-text' },
+    { name: 'forum', title: 'Forum', icon: 'chatbubbles-outline', iconActive: 'chatbubbles' },
+    { name: 'profile', title: 'Profil', icon: 'person-outline', iconActive: 'person' },
+];
 
 export default function TabLayout() {
+    const insets = useSafeAreaInsets();
+    const colors = useColors();
+    const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 8 : 0);
+
     return (
         <Tabs
             screenOptions={{
-                tabBarActiveTintColor: colors.primary,
-                tabBarInactiveTintColor: colors.textSecondary,
+                tabBarActiveTintColor: colors.accent,
+                tabBarInactiveTintColor: colors.textMuted,
                 tabBarStyle: {
+                    ...styles.tabBar,
+                    backgroundColor: colors.surface,
                     borderTopColor: colors.border,
-                    backgroundColor: colors.background,
+                    height: TAB_CONTENT_HEIGHT + bottomInset,
+                    paddingBottom: bottomInset,
                 },
-                headerStyle: { backgroundColor: colors.background },
-                headerTintColor: colors.text,
+                tabBarItemStyle: styles.tabBarItem,
+                tabBarLabelStyle: styles.tabBarLabel,
+                headerShown: false,
+                tabBarHideOnKeyboard: true,
+                // Les onglets déjà visités restent montés : retour instantané
+                lazy: true,
+                freezeOnBlur: true,
             }}
         >
-            <Tabs.Screen
-                name="index"
-                options={{
-                    title: 'Accueil',
-                    tabBarIcon: ({ color, size }) => (
-                        <Ionicons name="home" size={size} color={color} />
-                    ),
-                }}
-            />
-            <Tabs.Screen
-                name="courses"
-                options={{
-                    title: 'Cours',
-                    tabBarIcon: ({ color, size }) => (
-                        <Ionicons name="book" size={size} color={color} />
-                    ),
-                }}
-            />
-            <Tabs.Screen
-                name="forum"
-                options={{
-                    title: 'Forum',
-                    tabBarIcon: ({ color, size }) => (
-                        <Ionicons name="chatbubbles" size={size} color={color} />
-                    ),
-                }}
-            />
-            <Tabs.Screen
-                name="profile"
-                options={{
-                    title: 'Profil',
-                    tabBarIcon: ({ color, size }) => (
-                        <Ionicons name="person" size={size} color={color} />
-                    ),
-                }}
-            />
+            {TABS.map((t) => (
+                <Tabs.Screen
+                    key={t.name}
+                    name={t.name}
+                    options={{
+                        title: t.title,
+                        tabBarIcon: ({ color, focused }) => (
+                            <Icon name={focused ? t.iconActive : t.icon} size={24} color={color as string} />
+                        ),
+                    }}
+                />
+            ))}
         </Tabs>
     );
 }
+
+const styles = StyleSheet.create({
+    tabBar: {
+        borderTopWidth: StyleSheet.hairlineWidth,
+        paddingTop: 6,
+        elevation: 0,
+        shadowOpacity: 0,
+    },
+    tabBarItem: {
+        paddingTop: 2,
+    },
+    tabBarLabel: {
+        fontSize: 11,
+        fontFamily: typography.fontFamily.semiBold,
+        marginTop: 2,
+    },
+});
