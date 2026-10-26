@@ -1,16 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, FlatList, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useColors } from '../../lib/useColors';
-import { spacing, type ThemeColors } from '../../lib/theme';
+import { spacing, typography, type ThemeColors } from '../../lib/theme';
 import { getFiches, type FicheListItem } from '../../lib/api';
-import { ChipTabs, ContentCard, EmptyState, IconButton, PageHeader, FicheStatus, Stat, timeAgo, plainExcerpt } from '../../components/wk';
-import Avatar from '../../components/Avatar';
+import { ChipTabs, EmptyState, Eyebrow, IconButton, PageHeader } from '../../components/wk';
 import CatalogList from '../../components/CatalogList';
-import { SearchBar, Fab } from '../../components/mobile';
+import { SearchBar, Fab, FilterButton, BottomSheet, SheetChoices, PrimaryButton } from '../../components/mobile';
+import { FicheGridCard } from '../../components/FicheCover';
+import { LEVELS } from '../../lib/education';
 import { tapLight } from '../../lib/haptics';
 
-const keyOf = (f: FicheListItem) => f.id;
+// Grille de 2 colonnes : chaque ligne de la liste porte deux fiches
+type Pair = FicheListItem[];
+const keyOf = (row: Pair) => row.map((f) => f.id).join('-');
+const GAP = spacing.md;
 
 // Matières mises en avant sur la page fiches du site
 const POPULAR = [
@@ -42,6 +46,11 @@ export default function FichesTab() {
     const [search, setSearch] = useState('');
     const [query, setQuery] = useState('');
     const [subject, setSubject] = useState('');
+    const [level, setLevel] = useState('');
+    const [filtersOpen, setFiltersOpen] = useState(false);
+    const [popular, setPopular] = useState<FicheListItem[]>([]);
+    const { width } = useWindowDimensions();
+    const cardW = Math.floor((width - spacing.lg * 2 - GAP) / 2);
     const [error, setError] = useState('');
     const requestId = useRef(0);
 
@@ -55,7 +64,7 @@ export default function FichesTab() {
         const rid = ++requestId.current;
         try {
             setError('');
-            const data = await getFiches({ query, subject, page: p, limit: PAGE_SIZE, force });
+            const data = await getFiches({ query, subject, level, page: p, limit: PAGE_SIZE, force });
             if (rid !== requestId.current) return;
             setFiches((prev) => (p === 1 ? data.data || [] : [...prev, ...(data.data || [])]));
             setPage(p);
@@ -69,7 +78,26 @@ export default function FichesTab() {
                 setRefreshing(false);
             }
         }
-    }, [query, subject]);
+    }, [query, subject, level]);
+
+    // Carrousel « les plus aimées » de la matière choisie
+    useEffect(() => {
+        let alive = true;
+        getFiches({ subject, level, sort: 'popular', limit: 10 })
+            .then((d) => {
+                if (!alive) return;
+                // Site pas encore à jour (tri ignoré) : on trie nous-mêmes la page reçue
+                setPopular([...(d.data || [])].sort((a, b) => b.likes - a.likes).filter((f) => f.likes > 0).slice(0, 10));
+            })
+            .catch(() => { if (alive) setPopular([]); });
+        return () => { alive = false; };
+    }, [subject, level]);
+
+    const rows = useMemo(() => {
+        const out: Pair[] = [];
+        for (let i = 0; i < fiches.length; i += 2) out.push(fiches.slice(i, i + 2));
+        return out;
+    }, [fiches]);
 
     useEffect(() => {
         setLoading(true);
@@ -83,41 +111,54 @@ export default function FichesTab() {
         load(page + 1);
     }, [loading, loadingMore, page, totalPages, load]);
 
-    const renderItem = useCallback((item: FicheListItem) => (
-        <ContentCard
-            title={item.title}
-            subject={item.subject}
-            level={item.level}
-            status={<FicheStatus status={item.status} />}
-            excerpt={plainExcerpt(item.content, 200)}
-            avatar={item.authors?.username ? <Avatar name={item.authors.username} userId={item.authors._id} size="xs" /> : undefined}
-            authorName={item.authors?.username}
-            meta={timeAgo(item.createdAt)}
-            stats={<><Stat icon="flame" value={item.likes} color={colors.primary} /><Stat icon="chatbubble" value={item.comments} /></>}
-            onPress={() => router.push(`/fiches/${item.id}`)}
-        />
-    ), [colors.primary, router]);
+    const open = useCallback((id: string) => { tapLight(); router.push(`/fiches/${id}`); }, [router]);
+    const renderItem = useCallback((row: Pair) => (
+        <View style={s.pair}>
+            {row.map((f) => <FicheGridCard key={f.id} fiche={f} width={cardW} onPress={() => open(f.id)} />)}
+        </View>
+    ), [cardW, open, s]);
 
     return (
         <View style={s.container}>
             <CatalogList
                 hero={
-                    <PageHeader
-                        topInset={0}
-                        eyebrow="Fiches de révision"
-                        title="Fiches de révision"
-                        accent="gratuites"
-                        subtitle="Synthèses, méthodes, formules : tout pour le Brevet, le Bac et le supérieur."
-                        right={<IconButton icon="bookmark-outline" label="Mes favoris" onPress={() => router.push('/favoris')} />}
-                    />
+                    <>
+                        <PageHeader
+                            topInset={0}
+                            eyebrow="Fiches de révision"
+                            title="Fiches de révision"
+                            accent="gratuites"
+                            subtitle="Synthèses, méthodes, formules : tout pour le Brevet, le Bac et le supérieur."
+                            right={<IconButton icon="bookmark-outline" label="Mes favoris" onPress={() => router.push('/favoris')} />}
+                        />
+                        {popular.length > 2 && !query ? (
+                            <View style={s.popular}>
+                                <View style={s.popularHead}>
+                                    <Eyebrow>Les plus aimées</Eyebrow>
+                                    <Text style={s.popularTitle}>Ce que les autres révisent 🔥</Text>
+                                </View>
+                                <FlatList
+                                    horizontal
+                                    data={popular}
+                                    keyExtractor={(f) => f.id}
+                                    showsHorizontalScrollIndicator={false}
+                                    contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: GAP }}
+                                    renderItem={({ item }) => <FicheGridCard fiche={item} width={132} onPress={() => open(item.id)} />}
+                                />
+                            </View>
+                        ) : null}
+                    </>
                 }
                 bar={
                     <>
-                        <SearchBar value={search} onChangeText={setSearch} placeholder="Rechercher une fiche…" style={{ flex: 0 }} />
+                        <View style={s.searchRow}>
+                            <SearchBar value={search} onChangeText={setSearch} placeholder="Rechercher une fiche…" />
+                            <FilterButton count={level ? 1 : 0} onPress={() => setFiltersOpen(true)} />
+                        </View>
                         <ChipTabs value={subject} onChange={(v) => { tapLight(); setSubject(v); }} options={POPULAR} style={{ paddingTop: spacing.md }} />
                     </>
                 }
-                data={fiches}
+                data={rows}
                 keyOf={keyOf}
                 renderItem={renderItem}
                 loading={loading}
@@ -133,13 +174,22 @@ export default function FichesTab() {
                         <EmptyState
                             icon="documents-outline"
                             title="Aucune fiche trouvée"
-                            text={query || subject ? 'Essaie un autre mot-clé ou une autre matière.' : 'Sois le premier à partager une fiche !'}
+                            text={query || subject || level ? 'Essaie un autre mot-clé ou une autre matière.' : 'Sois le premier à partager une fiche !'}
                         />
                     )
                 }
             />
 
             <Fab label="Déposer" onPress={() => router.push('/fiches/creer')} />
+
+            <BottomSheet
+                visible={filtersOpen}
+                onClose={() => setFiltersOpen(false)}
+                title="Filtrer les fiches"
+                footer={<PrimaryButton label={level ? `Voir les fiches · ${level}` : 'Voir toutes les fiches'} onPress={() => setFiltersOpen(false)} />}
+            >
+                <SheetChoices label="Niveau" options={LEVELS} value={level} onChange={setLevel} allLabel="Tous les niveaux" />
+            </BottomSheet>
         </View>
     );
 }
@@ -147,5 +197,10 @@ export default function FichesTab() {
 function createStyles(c: ThemeColors) {
     return StyleSheet.create({
         container: { flex: 1, backgroundColor: c.background },
+        pair: { flexDirection: 'row', gap: GAP, paddingBottom: spacing.sm },
+        searchRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+        popular: { paddingTop: spacing.sm, paddingBottom: spacing.lg, gap: spacing.md },
+        popularHead: { paddingHorizontal: spacing.lg, gap: 4 },
+        popularTitle: { fontFamily: typography.fontFamily.display, fontSize: 24, letterSpacing: -0.3, color: c.text },
     });
 }

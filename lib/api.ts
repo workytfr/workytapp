@@ -362,11 +362,16 @@ export interface FicheListItem {
     subject?: string;
     course?: { title: string; slug?: string } | null;
     createdAt: string;
+    /** Première image jointe (vignette) — absent tant que le site n'est pas à jour */
+    cover?: string | null;
+    fileCount?: number;
+    hasPdf?: boolean;
 }
 
 /** Liste/recherche des fiches. GET /api/fiches/search */
-export async function getFiches(params: { query?: string; level?: string; subject?: string; page?: number; limit?: number; force?: boolean } = {}) {
+export async function getFiches(params: { query?: string; level?: string; subject?: string; page?: number; limit?: number; force?: boolean; sort?: 'recent' | 'popular' } = {}) {
     const qs = new URLSearchParams();
+    if (params.sort === 'popular') qs.set('sort', 'popular');
     if (params.query) qs.set('query', params.query);
     if (params.level) qs.set('level', params.level);
     if (params.subject) qs.set('subject', params.subject);

@@ -68,6 +68,7 @@ import Glasses from 'lucide-react-native/icons/glasses';
 import Globe from 'lucide-react-native/icons/globe';
 import GraduationCap from 'lucide-react-native/icons/graduation-cap';
 import Heart from 'lucide-react-native/icons/heart';
+import Share2 from 'lucide-react-native/icons/share-2';
 import HeartHandshake from 'lucide-react-native/icons/heart-handshake';
 import Home from 'lucide-react-native/icons/house';
 import Hourglass from 'lucide-react-native/icons/hourglass';
@@ -179,7 +180,7 @@ const MAP: Record<string, LucideIcon> = {
     'trending-up': TrendingUp, trophy: Trophy, wallet: Wallet, warning: AlertTriangle, crown: Crown, swords: Swords,
     alarm: AlarmClock,
     // Gamification (aventure, quêtes, coffres, inventaire)
-    cube: Package, sword: Sword, skull: Skull, shirt: Shirt, 'heart-pulse': HeartPulse, gem: Gem,
+    'share-social': Share2, cube: Package, sword: Sword, skull: Skull, shirt: Shirt, 'heart-pulse': HeartPulse, gem: Gem,
     'calendar-check': CalendarCheck, target: Target, backpack: Backpack, timer: Timer, 'lock-open': LockOpen, footprints: Footprints,
     'book-text': BookText, wrench: Wrench, landmark: Landmark, 'pen-tool': PenTool, microscope: Microscope,
 };
