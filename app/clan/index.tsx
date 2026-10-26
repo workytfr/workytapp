@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    View, Text, StyleSheet, ScrollView, Pressable, RefreshControl, Image, Alert, ActivityIndicator, AppState,
+    View, Text, StyleSheet, ScrollView, Pressable, RefreshControl, Alert, ActivityIndicator, AppState,
     type ScrollViewInstance,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,12 +12,13 @@ import { spacing, radius, typography, type ThemeColors } from '../../lib/theme';
 import {
     CHAT_CATEGORY_LABEL, CHAT_TEMPLATES, CHEST_LABEL, GATES, GATE_LABEL, ROLE_META, SOLDIER_CATALOG,
     buySoldier, cancelPurchase, deployUnit, getBattleReport, getChat, getMyClan, getSoldiers, getWeeklyReward,
-    markRewardSeen, renderTemplate, sendChat, setDailyOrder, setMyGate, setRole, soldierImage,
+    clanCastleTheme, markRewardSeen, renderTemplate, sendChat, setDailyOrder, setMyGate, setRole, soldierImage,
     type BattleReport, type ChatData, type ChatTemplateDef, type ClanRole, type GateName, type MyClanData,
     type SoldiersData, type Stance, type WeeklyReward,
 } from '../../lib/clan';
 import { BattleReportModal, Castle, WarScoreboard, WeeklyRewardModal } from '../../components/clan';
 import { ChipTabs, EmptyState, Eyebrow, IconButton, SkeletonList } from '../../components/wk';
+import RemoteImage from '../../components/RemoteImage';
 
 type Tab = 'combat' | 'garnison' | 'tchat' | 'journal';
 const SEEN_REPORT_KEY = '@workyt_clan_report_seen';
@@ -186,8 +187,16 @@ function CombatTab({ data, s, colors, onChanged }: TabProps & { onChanged: () =>
         finally { setBusy(null); }
     };
 
-    const pressure = rival?.pressureGate ? { gate: rival.pressureGate, label: `🔭 ${rival.pressureShare ?? ''} %` } : null;
-    const myGateHl = me.gate ? { gate: me.gate, label: '🎯 Ma cible' } : null;
+    const theme = useMemo(() => clanCastleTheme(data.season), [data.season]);
+    // Chez nous : la porte où l'ennemi masse son assaut (halo rouge) ;
+    // chez lui : la porte que je vise (halo orange en pointillés)
+    // (à défaut de mesure, l'ordre adverse révélé par l'Éclaireur, comme sur le site)
+    const pressure = rival?.pressureGate
+        ? { gate: rival.pressureGate, label: `🔭 ${rival.pressureShare ?? ''} %`, kind: 'threat' as const }
+        : rival?.dailyOrder
+            ? { gate: rival.dailyOrder, label: '🔭 Visée', kind: 'threat' as const }
+            : null;
+    const myGateHl = me.gate ? { gate: me.gate, label: '🎯 Ma cible', kind: 'target' as const } : null;
 
     return (
         <>
@@ -270,10 +279,22 @@ function CombatTab({ data, s, colors, onChanged }: TabProps & { onChanged: () =>
             {/* Champ de bataille */}
             <Eyebrow style={{ marginTop: spacing.sm }}>Champ de bataille</Eyebrow>
             <View style={s.castles}>
-                <Castle title="Nous" gates={clan.gates} keepHp={clan.keepHp} keepHpMax={clan.keepHpMax} highlight={pressure} order={clan.dailyOrder} mine />
+                <Castle
+                    title={clan.name}
+                    bannerSeed={clan.bannerSeed}
+                    theme={theme}
+                    gates={clan.gates}
+                    keepHp={clan.keepHp}
+                    keepHpMax={clan.keepHpMax}
+                    highlight={pressure}
+                    order={clan.dailyOrder}
+                    mine
+                />
                 {rival ? (
                     <Castle
                         title={rival.name}
+                        bannerSeed={rival.bannerSeed}
+                        theme={theme}
                         gates={rival.gates}
                         keepHp={rival.keepHp}
                         keepHpMax={rival.keepHpMax}
@@ -465,15 +486,16 @@ function GarrisonTab({ data, s, colors, onChanged }: TabProps & { onChanged: () 
     );
 }
 
+/**
+ * Portrait d'unité : PNG du site (/clans/soldats/…), préfixé de l'origine.
+ * RemoteImage sait aussi lire un SVG si le site en servait un un jour (le
+ * composant Image natif ne les affiche pas) ; à défaut, l'emoji de l'unité.
+ */
 const UnitImage = memo(function UnitImage({ path, emoji, s, big }: { path: string | null; emoji: string; s: Styles; big?: boolean }) {
-    const [failed, setFailed] = useState(false);
     const uri = soldierImage(path);
     const size = big ? 64 : 44;
-    return uri && !failed ? (
-        <Image source={{ uri }} style={{ width: size, height: size }} resizeMode="contain" onError={() => setFailed(true)} />
-    ) : (
-        <View style={[s.unitFallback, { width: size, height: size }]}><Text style={{ fontSize: size * 0.5 }}>{emoji}</Text></View>
-    );
+    const fallback = <View style={[s.unitFallback, { width: size, height: size }]}><Text style={{ fontSize: size * 0.5 }}>{emoji}</Text></View>;
+    return uri ? <RemoteImage uri={uri} width={size} height={size} fallback={fallback} /> : fallback;
 });
 
 /* ───────────── Journal ───────────── */
@@ -706,7 +728,8 @@ function createStyles(c: ThemeColors) {
         gateBtnTextActive: { color: c.background },
         gateOrder: { fontFamily: typography.fontFamily.medium, fontSize: 10, color: c.textMuted },
 
-        castles: { flexDirection: 'row', gap: spacing.sm },
+        // Un château par ligne : le dessin a besoin de toute la largeur pour se lire
+        castles: { gap: spacing.md },
 
         rankRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 8, paddingHorizontal: 6, borderRadius: radius.md },
         rankPos: { width: 22, textAlign: 'center', fontFamily: typography.fontFamily.heading, fontSize: 13, color: c.textSecondary },

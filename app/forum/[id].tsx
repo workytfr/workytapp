@@ -22,7 +22,7 @@ import PaperDots from '../../components/PaperDots';
 import { EmptyState, Eyebrow, LevelChip, QuestionStatus, SkeletonList, SubjectLabel } from '../../components/wk';
 import { BottomSheet, PrimaryButton } from '../../components/mobile';
 import { success, tapLight } from '../../lib/haptics';
-import MarkdownRenderer from '../../components/MarkdownRenderer';
+import RichMarkdown from '../../components/RichMarkdown';
 import Avatar from '../../components/Avatar';
 import { useThreadRealtime } from '../../lib/realtime';
 import TypingIndicator from '../../components/TypingIndicator';
@@ -367,7 +367,7 @@ export default function QuestionDetailScreen() {
                                     <Text style={s.descTitle}>{b.label}</Text>
                                 </View>
                             </View>
-                            <MarkdownRenderer content={b.body} knownUsers={knownUsers} />
+                            <RichMarkdown content={b.body} knownUsers={knownUsers} />
                         </View>
                     ))}
 
@@ -439,7 +439,7 @@ export default function QuestionDetailScreen() {
                                             <Text style={s.authorMeta}>{timeAgo(answer.createdAt)}</Text>
                                         </View>
                                     </Pressable>
-                                    <MarkdownRenderer content={answer.content} knownUsers={knownUsers} />
+                                    <RichMarkdown content={answer.content} knownUsers={knownUsers} />
                                     <View style={s.answerFoot}>
                                         <Pressable
                                             onPress={() => { tapLight(); handleLike(answer._id); }}
@@ -509,7 +509,7 @@ export default function QuestionDetailScreen() {
                 </View>
                 {showPreview ? (
                     <View style={s.preview}>
-                        <MarkdownRenderer content={answerText || '*Aucun contenu*'} knownUsers={knownUsers} />
+                        <RichMarkdown content={answerText || '*Aucun contenu*'} knownUsers={knownUsers} />
                     </View>
                 ) : (
                     <TextInput

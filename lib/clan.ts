@@ -229,18 +229,77 @@ export const CHEST_LABEL: Record<string, string> = {
 
 export const WAR_DAYS = 7;
 
-/** Couleurs de blason dérivées de la graine (stables d'un appareil à l'autre). */
-export function bannerColors(seed: string): [string, string] {
-    const PALETTE: [string, string][] = [
-        ['#FF6A1A', '#C24A0A'], ['#2F86B3', '#1B5C80'], ['#3F8A1F', '#27600F'], ['#8E44AD', '#5E2A75'],
-        ['#C2272D', '#8A1519'], ['#D4A017', '#8C6D1F'], ['#16A085', '#0E6B59'], ['#34495E', '#1F2D3A'],
-    ];
-    let h = 0;
-    for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-    return PALETTE[h % PALETTE.length];
+/* ─── Thèmes saisonniers du château (copie de lib/clanThemes.ts, décor seulement) ───
+ * Le thème se déduit de la seule clé de saison (`2026-W43`), comme sur le
+ * site : même résultat partout, rien à demander au serveur. Il ne touche
+ * jamais aux couleurs des camps (bleu pour soi, rouge pour l'adversaire). */
+
+export interface CastleTheme {
+    id: string;
+    label: string;
+    emoji: string;
+    /** Ciel derrière le château (haut → bas) ; absent = papier de la charte */
+    sky?: readonly [string, string];
+    hills: string;
+    ground: string;
+    grass: string;
+    /** Flamme des portes critiques : extérieur, cœur */
+    flame: readonly [string, string];
+    smoke: string;
 }
 
-export const soldierImage = (path: string | null | undefined) => (path ? `${getSiteOrigin()}${path}` : null);
+const FLAMME = ['#ff6a1a', '#ffb547'] as const;
+
+export const CASTLE_THEMES: Record<string, CastleTheme> = {
+    classique: { id: 'classique', label: 'Guerre des Clans', emoji: '⚔️', hills: '#f5efe3', ground: '#efe6d4', grass: '#5fae3c', flame: FLAMME, smoke: '#b9ad9b' },
+    halloween: { id: 'halloween', label: 'La Nuit des Citrouilles', emoji: '🎃', sky: ['#241a38', '#6b4f93'], hills: '#3b2b55', ground: '#e3d6bd', grass: '#7d8f3a', flame: ['#7ed957', '#d9ffb0'], smoke: '#a596bd' },
+    automne: { id: 'automne', label: 'Les Brumes d’automne', emoji: '🍂', sky: ['#f2c38f', '#fbeee0'], hills: '#d08a4a', ground: '#ecdcbf', grass: '#b0812f', flame: FLAMME, smoke: '#b9ad9b' },
+    hiver: { id: 'hiver', label: 'Le Siège d’hiver', emoji: '❄️', sky: ['#7fb2dc', '#dcf0fa'], hills: '#f4f9fc', ground: '#f7fbfd', grass: '#9fc6d9', flame: FLAMME, smoke: '#c7d3dc' },
+    nouvel_an: { id: 'nouvel_an', label: 'Les Aurores du Nouvel An', emoji: '🎆', sky: ['#101a3f', '#3a3f7d'], hills: '#1f2752', ground: '#e3dccd', grass: '#6c8f6a', flame: FLAMME, smoke: '#9aa3c7' },
+    carnaval: { id: 'carnaval', label: 'Le Grand Carnaval', emoji: '🎭', sky: ['#ffe2bd', '#fdf3e6'], hills: '#f4c6d8', ground: '#efe6d4', grass: '#5fae3c', flame: FLAMME, smoke: '#b9ad9b' },
+    printemps: { id: 'printemps', label: 'Le Printemps des Cerisiers', emoji: '🌸', sky: ['#bfe6fb', '#f0fbff'], hills: '#a8dc8a', ground: '#e9efd2', grass: '#4fae3c', flame: FLAMME, smoke: '#b9ad9b' },
+    examens: { id: 'examens', label: 'Le Siège des Examens', emoji: '📚', sky: ['#fdf8ea', '#fffdf6'], hills: '#e9dfc7', ground: '#efe6d4', grass: '#5fae3c', flame: FLAMME, smoke: '#b9ad9b' },
+    ete: { id: 'ete', label: 'L’Été des Pirates', emoji: '🏴‍☠️', sky: ['#7cc8ee', '#e6f6fd'], hills: '#3fa4d6', ground: '#f2dcaa', grass: '#8fb04a', flame: FLAMME, smoke: '#b9ad9b' },
+};
+
+/** Périodes (mois, jour) : une semaine prend le thème qui contient son LUNDI. */
+const CALENDRIER: { id: string; from: [number, number]; to: [number, number] }[] = [
+    { id: 'halloween', from: [10, 15], to: [10, 31] },
+    { id: 'automne', from: [11, 1], to: [11, 30] },
+    { id: 'hiver', from: [12, 1], to: [12, 27] },
+    { id: 'nouvel_an', from: [12, 28], to: [1, 31] },
+    { id: 'carnaval', from: [2, 1], to: [2, 29] },
+    { id: 'printemps', from: [3, 1], to: [4, 30] },
+    { id: 'examens', from: [5, 1], to: [6, 30] },
+    { id: 'ete', from: [7, 1], to: [8, 31] },
+];
+
+/** Lundi (UTC) d'une semaine ISO `2026-W43`, ou null si la clé est invalide. */
+function seasonMonday(season: string): Date | null {
+    const m = /^(\d{4})-W(\d{2})$/.exec(season);
+    if (!m) return null;
+    const jan4 = new Date(Date.UTC(Number(m[1]), 0, 4));
+    const monday = new Date(jan4);
+    monday.setUTCDate(jan4.getUTCDate() - ((jan4.getUTCDay() || 7) - 1) + (Number(m[2]) - 1) * 7);
+    return monday;
+}
+
+/** Thème du château pour une saison ; le classique hors période. */
+export function clanCastleTheme(season: string | null | undefined): CastleTheme {
+    const monday = season ? seasonMonday(season) : null;
+    if (!monday) return CASTLE_THEMES.classique;
+    const md = (monday.getUTCMonth() + 1) * 100 + monday.getUTCDate();
+    const hit = CALENDRIER.find(({ from, to }) => {
+        const a = from[0] * 100 + from[1];
+        const b = to[0] * 100 + to[1];
+        return a <= b ? md >= a && md <= b : md >= a || md <= b;
+    });
+    return hit ? CASTLE_THEMES[hit.id] : CASTLE_THEMES.classique;
+}
+
+/** Image d'unité : chemin relatif du site (« /clans/soldats/… ») → URL absolue. */
+export const soldierImage = (path: string | null | undefined) =>
+    !path ? null : /^https?:\/\//.test(path) ? path : `${getSiteOrigin()}${path.startsWith('/') ? '' : '/'}${path}`;
 
 // ─── Catalogue des unités (copie de lib/clanSoldierCatalog.ts) ───
 

@@ -60,13 +60,17 @@ function Avatar({
     showBorder = false,
     borderColor = "#FF6A1A",
 }: AvatarProps) {
-    const [imageError, setImageError] = useState(false);
+    // Mémorise l'URL en échec (et non un simple booléen) : quand la
+    // personnalisation arrive après une image de repli cassée, la photo du
+    // membre doit quand même être tentée.
+    const [failedUri, setFailedUri] = useState<string | null>(null);
     const px = SIZE_MAP[size];
     const seed = userId || name || "?";
 
     const custom = useCustomization(userId);
 
     const photo = custom.profileImageUrl ?? (imageUri ? absolute(imageUri) : null);
+    const imageError = !!photo && failedUri === photo;
     const lookKey = JSON.stringify(custom.look);
     const svg = useMemo(
         () => (photo && !imageError ? null : blobatarSvg(seed, lookKey, custom.look)),
@@ -90,7 +94,7 @@ function Avatar({
                         source={{ uri: photo }}
                         style={{ width: px, height: px }}
                         resizeMode="cover"
-                        onError={() => setImageError(true)}
+                        onError={() => setFailedUri(photo)}
                     />
                 ) : svg ? (
                     <SvgXml xml={svg} width={px} height={px} />

@@ -254,6 +254,10 @@ export function ChipTabs<T extends string>({
         <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            // Une ScrollView a flexGrow: 1 par défaut : sous un contenu court ou en
+            // flex: 1 (tchat, journal…), elle absorbait l'espace libre et étirait les
+            // pastilles en hauteur. On fige donc sa taille sur son contenu.
+            style={s.chipsScroll}
             contentContainerStyle={[s.chips, style]}
             keyboardShouldPersistTaps="handled"
         >
@@ -517,7 +521,8 @@ function createStyles(c: ThemeColors) {
         },
         iconBadgeText: { fontFamily: typography.fontFamily.heading, fontSize: 9, color: '#fff' },
 
-        chips: { gap: spacing.sm, paddingVertical: spacing.xs },
+        chipsScroll: { flexGrow: 0, flexShrink: 0 },
+        chips: { gap: spacing.sm, paddingVertical: spacing.xs, alignItems: 'center' },
         chip: {
             flexDirection: 'row',
             alignItems: 'center',

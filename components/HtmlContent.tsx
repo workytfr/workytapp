@@ -3,6 +3,8 @@ import { Platform } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useColors } from '../lib/useColors';
 import { getSiteOrigin } from '../lib/siteOrigin';
+import { openLink } from '../lib/links';
+import { markdownToHtml } from '../lib/richText';
 
 interface HtmlContentProps {
     html: string;
@@ -10,60 +12,95 @@ interface HtmlContentProps {
     markdown?: boolean;
     /** Marge intérieure horizontale du contenu (par défaut 0, géré par le parent). */
     padding?: number;
+    /** Taille du texte en px (16 par défaut). */
+    fontSize?: number;
 }
 
-function escapeForTextarea(s: string): string {
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+/** Message de la WebView : hauteur (nombre) ou lien touché (JSON). */
+function handleMessage(data: string, setHeight: (h: number) => void) {
+    if (data && data.charAt(0) === '{') {
+        try {
+            const msg = JSON.parse(data);
+            if (msg?.t === 'link' && typeof msg.href === 'string') openLink(msg.href);
+        } catch {
+            // message illisible : ignoré
+        }
+        return;
+    }
+    const h = Number(data);
+    if (!Number.isNaN(h) && h > 0) setHeight(Math.ceil(h) + 4);
 }
 
 /**
- * Rend le HTML riche des leçons/exercices Workyt (TipTap) dans une WebView :
+ * Rend le HTML riche des leçons/exercices Workyt (TipTap) — ou du Markdown
+ * (forum, fiches) — dans une WebView :
  * - blocs personnalisés (définition, propriété, théorème, remarque, attention, exemple)
- * - maths LaTeX via KaTeX (auto-render)
+ * - maths LaTeX via KaTeX ($…$, $$…$$, \(…\), \[…\])
  * - tableaux, images (URLs relatives résolues vers le site), code
- * Styles alignés sur la charte « papier ».
+ * - liens interceptés : workyt.fr → écran de l'app, le reste → navigateur
+ * - hauteur ajustée automatiquement au contenu
+ * Styles alignés sur la charte « papier » (clair / sombre).
  */
-export default function HtmlContent({ html, markdown = false, padding = 0 }: HtmlContentProps) {
+export default function HtmlContent({ html, markdown = false, padding = 0, fontSize = 16 }: HtmlContentProps) {
     const colors = useColors();
-    const [height, setHeight] = useState(120);
+    const [height, setHeight] = useState(40);
+    const loadedRef = useRef(false);
+    const baseUrl = getSiteOrigin();
 
-    const document = useMemo(() => buildDocument(html, colors, padding, markdown), [html, colors, padding, markdown]);
+    const document = useMemo(
+        () => buildDocument(html, colors, padding, markdown, fontSize),
+        [html, colors, padding, markdown, fontSize],
+    );
+
+    // Nouveau document → la WebView recharge : on ré-autorise le chargement initial
+    useEffect(() => { loadedRef.current = false; }, [document]);
 
     if (Platform.OS === 'web') return <WebPreview document={document} />;
 
     return (
         <WebView
             originWhitelist={['*']}
-            source={{ html: document, baseUrl: getSiteOrigin() }}
+            source={{ html: document, baseUrl }}
             style={{ height, backgroundColor: 'transparent', opacity: 0.99 }}
             scrollEnabled={false}
             showsVerticalScrollIndicator={false}
             javaScriptEnabled
             domStorageEnabled
             androidLayerType="hardware"
-            onMessage={(e) => {
-                const h = Number(e.nativeEvent.data);
-                if (!Number.isNaN(h) && h > 0) setHeight(h + 4);
+            setSupportMultipleWindows={false}
+            onLoadEnd={() => { loadedRef.current = true; }}
+            onShouldStartLoadWithRequest={(req) => {
+                // Les liens sont normalement interceptés en JS (clic → postMessage) ;
+                // ceci rattrape toute autre navigation de la page principale.
+                const url = req.url || '';
+                if (!loadedRef.current) return true;
+                if (req.isTopFrame === false) return true; // iframes (vidéos…)
+                if (/^(about:|data:|blob:)/.test(url)) return true;
+                if (url.replace(/\/$/, '') === baseUrl.replace(/\/$/, '')) return true;
+                openLink(url);
+                return false;
             }}
+            onMessage={(e) => handleMessage(e.nativeEvent.data, setHeight)}
         />
     );
 }
 
 /**
  * Aperçu web (expo start --web) : la WebView n'existe que sur mobile, on
- * rend le même document dans une iframe, avec le même canal de hauteur.
+ * rend le même document dans une iframe, avec les mêmes canaux (hauteur, liens).
  */
 function WebPreview({ document: doc }: { document: string }) {
-    const [height, setHeight] = useState(120);
+    const [height, setHeight] = useState(40);
     const ref = useRef<any>(null);
     useEffect(() => {
         const onMsg = (e: MessageEvent) => {
-            if (e.source === ref.current?.contentWindow && typeof e.data?.wkh === 'number') setHeight(e.data.wkh + 4);
+            if (e.source !== ref.current?.contentWindow || typeof e.data?.wkm !== 'string') return;
+            handleMessage(e.data.wkm, setHeight);
         };
         window.addEventListener('message', onMsg);
         return () => window.removeEventListener('message', onMsg);
     }, []);
-    const bridge = '<script>window.ReactNativeWebView={postMessage:function(h){parent.postMessage({wkh:Number(h)},"*")}};</script>';
+    const bridge = '<script>window.ReactNativeWebView={postMessage:function(m){parent.postMessage({wkm:String(m)},"*")}};</script>';
     return createElement('iframe', {
         ref,
         srcDoc: doc.replace('<head>', '<head>' + bridge),
@@ -71,7 +108,15 @@ function WebPreview({ document: doc }: { document: string }) {
     });
 }
 
-function buildDocument(html: string, colors: ReturnType<typeof useColors>, padding: number, isMarkdown: boolean): string {
+/** Sérialise une chaîne pour l'insérer sans risque dans un <script>. */
+function jsString(s: string): string {
+    return JSON.stringify(s)
+        .replace(/</g, '\\u003c')
+        .replace(/\u2028/g, '\\u2028')
+        .replace(/\u2029/g, '\\u2029');
+}
+
+function buildDocument(html: string, colors: ReturnType<typeof useColors>, padding: number, isMarkdown: boolean, fontSize: number): string {
     const svg = (paths: string) =>
         `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
 
@@ -108,7 +153,7 @@ function buildDocument(html: string, colors: ReturnType<typeof useColors>, paddi
   html, body { margin:0; padding:0; background:transparent; }
   body {
     font-family: 'Montserrat', -apple-system, system-ui, sans-serif;
-    font-size: 16px; line-height: 1.7; color: ${colors.text};
+    font-size: ${fontSize}px; line-height: 1.7; color: ${colors.text};
     padding: 0 ${padding}px; -webkit-text-size-adjust: 100%;
     overflow-wrap: break-word; word-break: break-word;
   }
@@ -138,32 +183,68 @@ function buildDocument(html: string, colors: ReturnType<typeof useColors>, paddi
   .cb-vlabel .cb-vtext { writing-mode:vertical-rl; transform:rotate(180deg); text-transform:uppercase; font-family:'Funnel Display','Montserrat',sans-serif; font-weight:700; font-size:.7em; letter-spacing:.2em; white-space:nowrap; }
   .katex { font-size:1.05em; }
   .katex-display { overflow-x:auto; overflow-y:hidden; padding:.2em 0; }
+  /* flow-root : les marges des enfants restent dans #content (hauteur exacte) */
+  #content { display:flow-root; }
+  #content > :first-child { margin-top:0; }
+  #content > :last-child { margin-bottom:0; }
+  /* Maths du Markdown : formule brute lisible tant que KaTeX n'est pas chargé (hors ligne) */
+  .wk-math { font-family: ui-monospace, Menlo, Consolas, monospace; font-size:.92em; color:${colors.textSecondary}; }
+  .wk-math.wk-ok { font-family:inherit; font-size:inherit; color:inherit; }
+  .wk-math-block { margin:.8em 0; overflow-x:auto; overflow-y:hidden; text-align:center; }
+  .wk-math-block .katex-display { margin:0; }
+  /* Mentions @pseudo (comme MentionPill sur le site) */
+  a.wk-mention { display:inline-block; padding:0 .45em; border-radius:999px; background:${colors.primary}1F; color:${colors.primary}; font-weight:600; line-height:1.5; }
   ${blockCss}
 </style>
 </head>
 <body>
-${isMarkdown
-        ? `<textarea id="md" style="display:none">${escapeForTextarea(html)}</textarea><div id="content"></div>`
-        : `<div id="content">${html}</div>`}
-${isMarkdown ? `<script defer src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"></script>` : ``}
+${isMarkdown ? `<div id="content"></div>` : `<div id="content">${html}</div>`}
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 <script>
   var BLOCKS = ${blockMap};
   var IS_MD = ${isMarkdown ? 'true' : 'false'};
+  var MD_HTML = ${isMarkdown ? jsString(markdownToHtml(html)) : '""'};
+  var DROP_TAGS = { SCRIPT:1, STYLE:1, IFRAME:1, FRAME:1, OBJECT:1, EMBED:1, LINK:1, META:1, BASE:1, FORM:1, INPUT:1, BUTTON:1, TEXTAREA:1, SELECT:1, SVG:1, MATH:1, TEMPLATE:1 };
+  // Assainit le HTML issu du contenu utilisateur (équivalent rehype-sanitize du site)
+  function sanitize(root) {
+    var all = root.querySelectorAll('*');
+    for (var i = all.length - 1; i >= 0; i--) {
+      var el = all[i];
+      if (DROP_TAGS[el.tagName.toUpperCase()]) { el.parentNode && el.parentNode.removeChild(el); continue; }
+      for (var j = el.attributes.length - 1; j >= 0; j--) {
+        var name = el.attributes[j].name.toLowerCase();
+        var val = (el.attributes[j].value || '').replace(/\\s+/g, '').toLowerCase();
+        if (name.indexOf('on') === 0 || name === 'style' || name === 'srcset' || name === 'formaction') { el.removeAttribute(el.attributes[j].name); continue; }
+        if ((name === 'href' || name === 'src' || name === 'xlink:href') && /^(javascript|vbscript|data):/.test(val) && !(name === 'src' && /^data:image\\//.test(val))) {
+          el.removeAttribute(el.attributes[j].name);
+        }
+      }
+    }
+  }
   function parseMarkdown() {
     if (!IS_MD) return;
-    var ta = document.getElementById('md');
-    if (!ta || !window.marked) return;
-    var raw = ta.value;
-    // Protéger les maths avant le markdown (sinon _ et * cassent les formules)
-    var math = [];
-    raw = raw.replace(/\\$\\$([\\s\\S]*?)\\$\\$/g, function (m) { math.push(m); return '@@M' + (math.length - 1) + '@@'; });
-    raw = raw.replace(/\\$([^\\$\\n]+?)\\$/g, function (m) { math.push(m); return '@@M' + (math.length - 1) + '@@'; });
-    var out = window.marked.parse(raw, { gfm: true, breaks: true });
-    out = out.replace(/@@M(\\d+)@@/g, function (_, i) { return math[i]; });
-    document.getElementById('content').innerHTML = out;
+    var content = document.getElementById('content');
+    if (!content || content.getAttribute('data-ready')) return;
+    var tpl = document.createElement('template');
+    tpl.innerHTML = MD_HTML; // contenu inerte tant qu'il n'est pas inséré
+    sanitize(tpl.content);
+    content.appendChild(tpl.content);
+    content.setAttribute('data-ready', '1');
+    // Mentions @pseudo → style « pastille »
+    content.querySelectorAll('a[href]').forEach(function (a) {
+      if (/\\/compte\\/[a-f0-9]{24}/i.test(a.getAttribute('href') || '') && /^@/.test((a.textContent || '').trim())) a.classList.add('wk-mention');
+    });
   }
+  // Liens : jamais de navigation dans la WebView, l'app décide (écran interne ou navigateur)
+  document.addEventListener('click', function (e) {
+    var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+    if (!a) return;
+    var raw = a.getAttribute('href') || '';
+    if (raw.charAt(0) === '#') return;
+    e.preventDefault();
+    if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(JSON.stringify({ t: 'link', href: a.href || raw }));
+  }, true);
   function enhanceBlocks() {
     var nodes = document.querySelectorAll('.custom-block, [blocktype]');
     nodes.forEach(function (el) {
@@ -203,16 +284,37 @@ ${isMarkdown ? `<script defer src="https://cdn.jsdelivr.net/npm/marked@12.0.0/ma
       el.appendChild(v);
     });
   }
+  var lastH = 0;
   function reportHeight() {
-    var h = document.body.scrollHeight || document.documentElement.scrollHeight;
+    var el = document.getElementById('content');
+    var h = el ? Math.ceil(el.getBoundingClientRect().height) : 0;
+    if (!h) h = document.body.scrollHeight || document.documentElement.scrollHeight;
+    if (Math.abs(h - lastH) < 1) return;
+    lastH = h;
     if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(String(h));
   }
+  var autoRendered = false;
   function renderMath() {
+    if (!window.katex) return;
+    var content = document.getElementById('content');
+    if (!content) return;
     try {
-      if (window.renderMathInElement) {
-        window.renderMathInElement(document.getElementById('content'), {
+      // Markdown : formules déjà isolées par l'app (span.wk-math)
+      content.querySelectorAll('.wk-math:not(.wk-ok)').forEach(function (el) {
+        var tex = el.textContent || '';
+        try {
+          window.katex.render(tex, el, { displayMode: el.getAttribute('data-display') === '1', throwOnError: false });
+          el.classList.add('wk-ok');
+        } catch (e) { el.textContent = tex; }
+      });
+      // HTML des leçons : délimiteurs dans le texte
+      if (!IS_MD && !autoRendered && window.renderMathInElement) {
+        autoRendered = true;
+        window.renderMathInElement(content, {
           delimiters: [
             { left: '$$', right: '$$', display: true },
+            { left: '\\\\[', right: '\\\\]', display: true },
+            { left: '\\\\(', right: '\\\\)', display: false },
             { left: '$', right: '$', display: false }
           ],
           throwOnError: false
@@ -222,7 +324,8 @@ ${isMarkdown ? `<script defer src="https://cdn.jsdelivr.net/npm/marked@12.0.0/ma
     reportHeight();
   }
   function bindImages() {
-    document.querySelectorAll('img').forEach(function (img) {
+    document.querySelectorAll('img:not([data-wkb])').forEach(function (img) {
+      img.setAttribute('data-wkb', '1');
       img.addEventListener('load', reportHeight);
       img.addEventListener('error', reportHeight);
     });
@@ -232,13 +335,21 @@ ${isMarkdown ? `<script defer src="https://cdn.jsdelivr.net/npm/marked@12.0.0/ma
     enhanceBlocks();
     bindImages();
     renderMath();
+    reportHeight();
   }
-  if (!IS_MD) init();
+  // Rendu immédiat (texte visible même si le CDN KaTeX est injoignable)
+  init();
+  // Hauteur suivie en continu : polices, KaTeX, images, rotation…
+  if (window.ResizeObserver) {
+    try { new ResizeObserver(reportHeight).observe(document.getElementById('content')); } catch (e) {}
+  }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(reportHeight).catch(function () {});
+  window.addEventListener('resize', reportHeight);
   window.addEventListener('load', function () {
-    setTimeout(init, IS_MD ? 30 : 0);
-    setTimeout(renderMath, 120);
+    init(); // KaTeX (scripts defer) est disponible ici
+    setTimeout(renderMath, 150);
     setTimeout(reportHeight, 400);
-    setTimeout(reportHeight, 1000);
+    setTimeout(reportHeight, 1200);
   });
 </script>
 </body>

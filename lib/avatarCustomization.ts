@@ -21,20 +21,36 @@ const EMPTY: Customization = { profileImageUrl: null, profileBorderUrl: null, us
 const cache = new Map<string, Customization>();
 const inflight = new Map<string, Promise<Customization>>();
 
+/**
+ * Le site stocke des chemins relatifs à son origine (ex. la photo envoyée par
+ * un bénévole : `/api/media/avatar/<uuid>.webp`, relayée depuis R2). Le
+ * navigateur les résout tout seul ; en natif, <Image> exige une URL absolue.
+ */
+function absolute(url: string, origin: string): string {
+    if (/^(https?:|data:)/i.test(url)) return url;
+    if (url.startsWith('//')) return `https:${url}`;
+    return `${origin}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
 function parse(c: any, origin: string): Customization {
     if (!c) return EMPTY;
     // Priorité identique au site : photo perso active > image de profil équipée
-    const photo = c.customPhoto?.isActive && c.customPhoto?.url ? c.customPhoto.url : null;
+    const photo =
+        c.customPhoto?.isActive && typeof c.customPhoto?.url === 'string' && c.customPhoto.url
+            ? absolute(c.customPhoto.url, origin)
+            : null;
+    const border: string | null =
+        c.profileBorder?.isActive && c.profileBorder?.filename ? String(c.profileBorder.filename) : null;
     return {
         profileImageUrl:
             photo ??
             (c.profileImage?.isActive && c.profileImage?.filename
                 ? `${origin}/profile/${c.profileImage.filename}`
                 : null),
+        // Les contours « anim:<id> » sont dessinés par le site (pas de fichier) :
+        // on ne demande pas une image qui n'existe pas.
         profileBorderUrl:
-            c.profileBorder?.isActive && c.profileBorder?.filename
-                ? `${origin}/profile/contour/${c.profileBorder.filename}`
-                : null,
+            border && !border.startsWith('anim:') ? `${origin}/profile/contour/${border}` : null,
         usernameColor:
             c.usernameColor?.isActive && c.usernameColor?.value ? c.usernameColor.value : null,
         look: sanitizeLook(c.avatarLook),

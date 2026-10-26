@@ -12,9 +12,10 @@ import Icon from './Icon';
 import { useColors } from '../lib/useColors';
 import { radius, spacing, typography, type ThemeColors } from '../lib/theme';
 import {
-    CHEST_LABEL, GATE_LABEL, GATES, OUTCOME_META, WAR_DAYS, bannerColors,
-    type BattleReport, type Gate, type GateName, type WeeklyReward,
+    CHEST_LABEL, GATE_LABEL, GATES, OUTCOME_META, WAR_DAYS,
+    type BattleReport, type CastleTheme, type Gate, type GateName, type WeeklyReward,
 } from '../lib/clan';
+import { CastleArt, ClanBanner, GATE_GAUGE, GATE_STATE_LABEL, gateState } from './clanArt';
 
 /** Respecte le réglage « réduire les animations » du téléphone. */
 export function useReducedMotion() {
@@ -29,19 +30,14 @@ export function useReducedMotion() {
 
 /* ───────────────────────── Blason ───────────────────────── */
 
+/**
+ * Blason du clan, tiré de sa graine comme sur le site (react-native-svg).
+ * L'ancienne version empilait des View (rectangle + losange tourné en
+ * zIndex négatif) : rien à voir avec l'écu du site, et la pointe passait
+ * sous le fond de la carte sur Android.
+ */
 export const Banner = memo(function Banner({ seed, name, size = 56 }: { seed: string; name: string; size?: number }) {
-    const [a, b] = bannerColors(seed || name);
-    const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('');
-    return (
-        <View style={{ width: size, height: size * 1.15, alignItems: 'center' }}>
-            {/* Écu : rectangle arrondi en haut, pointe en bas (losange tourné) */}
-            <View style={{ width: size, height: size * 0.8, backgroundColor: a, borderTopLeftRadius: size * 0.18, borderTopRightRadius: size * 0.18, borderWidth: 2, borderColor: b, borderBottomWidth: 0, alignItems: 'center', justifyContent: 'center' }}>
-                <View style={{ position: 'absolute', left: 0, right: 0, top: size * 0.32, height: size * 0.14, backgroundColor: b, opacity: 0.55 }} />
-                <Text style={{ fontFamily: typography.fontFamily.display, fontSize: size * 0.36, color: '#fff' }}>{initials}</Text>
-            </View>
-            <View style={{ width: size * 0.71, height: size * 0.71, backgroundColor: a, borderWidth: 2, borderColor: b, borderTopWidth: 0, borderLeftWidth: 0, transform: [{ rotate: '45deg' }], marginTop: -size * 0.36, zIndex: -1 }} />
-        </View>
-    );
+    return <ClanBanner seed={seed || name} size={size} label={`Blason de ${name}`} />;
 });
 
 /* ───────────────────────── Barre de vie ───────────────────────── */
@@ -164,51 +160,99 @@ const sb = StyleSheet.create({
 /* ───────────────────────── Château ───────────────────────── */
 
 export const Castle = memo(function Castle({
-    title, gates, keepHp, keepHpMax, highlight, order, mine,
+    title, bannerSeed, theme, gates, keepHp, keepHpMax, highlight, order, mine,
 }: {
     title: string;
+    /** Graine du blason : en-tête de la carte et bannière du donjon */
+    bannerSeed?: string;
+    /** Thème saisonnier : ciel, collines, sol (jamais les couleurs des camps) */
+    theme: CastleTheme;
     gates: Gate[];
     keepHp: number;
     keepHpMax: number;
-    /** Porte à mettre en avant (pression ennemie, ma porte…) */
-    highlight?: { gate: GateName; label: string } | null;
+    /**
+     * Porte mise en avant. `threat` = l'ennemi y masse son assaut (halo rouge
+     * plein) ; `target` = c'est là qu'on frappe (halo orange en pointillés).
+     */
+    highlight?: { gate: GateName; label: string; kind: 'threat' | 'target' } | null;
     /** Ordre du jour visible */
     order?: GateName | null;
     mine?: boolean;
 }) {
     const colors = useColors();
     const s = useMemo(() => castleStyles(colors), [colors]);
-    const byName = new Map(gates.map((g) => [g.name, g]));
-    const tint = mine ? colors.accent3 : '#E5484D';
+    const [width, setWidth] = useState(0);
+    // Toujours nord, est, sud : la géométrie du dessin en dépend
+    const ordered = useMemo(() => {
+        const byName = new Map(gates.map((g) => [g.name, g]));
+        return GATES.map((n) => byName.get(n)).filter((g): g is Gate => !!g);
+    }, [gates]);
+    const keepPct = keepHpMax > 0 ? Math.max(0, Math.min(1, keepHp / keepHpMax)) : 0;
+    const keepDown = keepHp <= 0;
 
     return (
-        <View style={s.card}>
-            <View style={s.head}>
-                <Text style={s.title}>{mine ? '🏰' : '⚔️'} {title}</Text>
+        <View style={[s.card, mine && { borderColor: colors.primary }]}>
+            {/* Bandeau : qui c'est */}
+            <View style={[s.head, { backgroundColor: mine ? colors.primary + '12' : colors.surfaceVariant }]}>
+                {bannerSeed ? <Banner seed={bannerSeed} name={title} size={30} /> : null}
+                <Text style={s.title} numberOfLines={1}>{title}</Text>
+                <Text style={[s.side, mine && { color: colors.accent }]}>{mine ? 'Ton clan' : 'Adversaire'}</Text>
             </View>
-            {GATES.map((name, i) => {
-                const g = byName.get(name);
-                if (!g) return null;
-                const pct = g.hpMax ? Math.round((g.hp / g.hpMax) * 100) : 0;
-                const hl = highlight?.gate === name;
-                return (
-                    <View key={name} style={[s.gate, hl && { borderColor: colors.primary, backgroundColor: colors.primary + '0F' }]}>
-                        <View style={s.gateHead}>
-                            <Text style={[s.gateName, g.fallen && s.fallen]}>Porte {GATE_LABEL[name]}</Text>
-                            {order === name ? <Text style={s.tag}>📯 Ordre</Text> : null}
-                            {hl ? <Text style={[s.tag, { color: colors.primary }]}>{highlight?.label}</Text> : null}
-                            <Text style={s.hp}>{g.fallen ? 'Tombée 💥' : `${g.hp}/${g.hpMax}`}</Text>
+
+            {/* Le dessin, mesuré à la largeur disponible */}
+            <View style={s.scene} onLayout={(e) => setWidth(Math.round(e.nativeEvent.layout.width) - spacing.sm * 2)}>
+                {width > 0 ? (
+                    <CastleArt
+                        gates={ordered}
+                        keepHp={keepHp}
+                        keepHpMax={keepHpMax}
+                        side={mine ? 'ally' : 'enemy'}
+                        bannerSeed={bannerSeed}
+                        // Comme sur le site : l'ordre adverse ne s'affiche pas en halo chez lui
+                        target={highlight?.kind === 'target' ? highlight.gate : mine ? order ?? null : null}
+                        threat={highlight?.kind === 'threat' ? highlight.gate : null}
+                        theme={theme}
+                        width={width}
+                    />
+                ) : null}
+            </View>
+
+            {/* Chiffres sous chaque porte : l'état ne repose jamais sur la seule couleur */}
+            <View style={s.gatesRow}>
+                {ordered.map((g) => {
+                    const st = gateState(g);
+                    const hl = highlight?.gate === g.name;
+                    return (
+                        <View key={g.name} style={s.gateCol}>
+                            <Text style={s.gateName}>{GATE_LABEL[g.name]}</Text>
+                            <Text style={s.hp}>{g.fallen ? '—' : `${g.hp}/${g.hpMax}`}</Text>
+                            <Text style={[s.state, { color: st === 'tombee' ? colors.error : st === 'critique' ? colors.accent : colors.textMuted }]}>
+                                {GATE_STATE_LABEL[st]}
+                            </Text>
+                            {order === g.name ? <Text style={s.tag}>📯 Ordre</Text> : null}
+                            {hl ? (
+                                <Text style={[s.tag, { color: highlight?.kind === 'threat' ? colors.error : colors.primary }]} numberOfLines={1}>
+                                    {highlight?.label}
+                                </Text>
+                            ) : null}
                         </View>
-                        <HpBar hp={g.fallen ? 0 : g.hp} hpMax={g.hpMax} color={pct < 30 ? '#E5484D' : tint} delay={150 * i} />
-                    </View>
-                );
-            })}
+                    );
+                })}
+            </View>
+
+            {/* Le donjon, en chiffres : c'est LA jauge dès qu'une porte est tombée */}
             <View style={s.keep}>
-                <View style={s.gateHead}>
-                    <Text style={s.gateName}>👑 Donjon</Text>
-                    <Text style={s.hp}>{keepHp}/{keepHpMax}</Text>
+                <View style={s.keepHead}>
+                    <Text style={s.keepName}>👑 Donjon</Text>
+                    <Text style={[s.hp, keepDown && { color: colors.error }]}>{keepDown ? 'abattu' : `${keepHp}/${keepHpMax}`}</Text>
                 </View>
-                <HpBar hp={keepHp} hpMax={keepHpMax} color={colors.accent2} height={10} delay={500} />
+                <HpBar
+                    hp={keepHp}
+                    hpMax={keepHpMax}
+                    color={keepPct > 0.5 ? GATE_GAUGE.intacte : keepPct > 0.2 ? GATE_GAUGE.entamee : GATE_GAUGE.tombee}
+                    delay={300}
+                />
+                <Text style={s.keepHint}>Les coups ne l’atteignent qu’une fois une porte tombée.</Text>
             </View>
         </View>
     );
@@ -216,16 +260,23 @@ export const Castle = memo(function Castle({
 
 function castleStyles(c: ThemeColors) {
     return StyleSheet.create({
-        card: { flex: 1, backgroundColor: c.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: c.border, padding: spacing.md, gap: spacing.sm },
-        head: { flexDirection: 'row', alignItems: 'center' },
-        title: { fontFamily: typography.fontFamily.heading, fontSize: 13, color: c.text },
-        gate: { gap: 5, padding: 6, borderRadius: radius.md, borderWidth: 1, borderColor: 'transparent' },
-        gateHead: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-        gateName: { flex: 1, fontFamily: typography.fontFamily.semiBold, fontSize: 12, color: c.text },
-        fallen: { color: c.textMuted, textDecorationLine: 'line-through' },
-        tag: { fontFamily: typography.fontFamily.semiBold, fontSize: 10, color: c.textSecondary },
-        hp: { fontFamily: typography.fontFamily.medium, fontSize: 10.5, color: c.textMuted },
-        keep: { gap: 5, marginTop: 2, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: c.divider, paddingHorizontal: 6 },
+        card: { backgroundColor: c.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: c.border, overflow: 'hidden' },
+        head: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+        title: { flex: 1, fontFamily: typography.fontFamily.display, fontSize: 17, color: c.text },
+        side: { fontFamily: typography.fontFamily.semiBold, fontSize: 11, color: c.textSecondary },
+        // Papier de la charte derrière le dessin, comme sur le site, y compris en
+        // sombre : la pierre et l'encre du château sont pensées pour ce fond
+        scene: { backgroundColor: '#FDFAF4', paddingHorizontal: spacing.sm, paddingTop: spacing.md, paddingBottom: 2 },
+        gatesRow: { flexDirection: 'row', paddingHorizontal: spacing.sm, paddingTop: spacing.sm },
+        gateCol: { flex: 1, alignItems: 'center', minWidth: 0 },
+        gateName: { fontFamily: typography.fontFamily.heading, fontSize: 13, color: c.text },
+        hp: { fontFamily: typography.fontFamily.semiBold, fontSize: 11.5, color: c.text },
+        state: { fontFamily: typography.fontFamily.medium, fontSize: 10.5 },
+        tag: { fontFamily: typography.fontFamily.semiBold, fontSize: 10.5, color: c.textSecondary, marginTop: 2 },
+        keep: { gap: 5, margin: spacing.md, marginTop: spacing.sm, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: c.divider },
+        keepHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+        keepName: { fontFamily: typography.fontFamily.semiBold, fontSize: 12.5, color: c.text },
+        keepHint: { fontFamily: typography.fontFamily.regular, fontSize: 11, color: c.textMuted },
     });
 }
 

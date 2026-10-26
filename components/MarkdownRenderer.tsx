@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Linking } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 import { typography } from '../lib/theme';
+import { openLink } from '../lib/links';
 import { extractMentionIds, fetchUsersBatch, getCachedUsername, primeUsers, resolveMentions } from '../lib/mentions';
 
 interface MarkdownRendererProps {
@@ -202,8 +202,9 @@ export default function MarkdownRenderer({ content, knownUsers }: MarkdownRender
         <Markdown
             style={markdownStyles}
             onLinkPress={(url: string) => {
-                Linking.openURL(url).catch(() => {});
-                return true;
+                // workyt.fr (mentions → /membre/<id>, forum, fiches…) : écran de l'app ; sinon navigateur
+                openLink(url);
+                return false;
             }}
         >
             {processed}

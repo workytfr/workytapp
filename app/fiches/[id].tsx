@@ -15,7 +15,7 @@ import { useColors } from '../../lib/useColors';
 import { spacing, radius, typography } from '../../lib/theme';
 import { getFiche, getFicheLikeStatus, likeFiche } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
-import HtmlContent from '../../components/HtmlContent';
+import RichMarkdown from '../../components/RichMarkdown';
 import PdfViewer from '../../components/PdfViewer';
 import FicheComments from '../../components/FicheComments';
 import BookmarkButton from '../../components/BookmarkButton';
@@ -161,7 +161,7 @@ export default function FicheDetailScreen() {
                         </TouchableOpacity>
                     ) : null}
 
-                    {fiche.content ? <HtmlContent html={fiche.content} /> : null}
+                    {fiche.content ? <RichMarkdown content={fiche.content} fontSize={16} /> : null}
 
                     {files.length > 0 && (
                         <View style={styles.files}>

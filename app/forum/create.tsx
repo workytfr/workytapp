@@ -18,7 +18,7 @@ import { useAuth } from '../../lib/auth';
 import { getToken, API_ORIGIN } from '../../lib/api';
 import { colors } from '../../lib/colors';
 import { typography } from '../../lib/theme';
-import MarkdownRenderer from '../../components/MarkdownRenderer';
+import RichMarkdown from '../../components/RichMarkdown';
 
 const SUBJECTS = ['Mathématiques', 'Français', 'Histoire-Géo', 'Physique-Chimie', 'SVT', 'Anglais', 'SES', 'Philosophie', 'NSI', 'Autre'];
 const LEVELS = ['Seconde', 'Première', 'Terminale', 'BTS'];
@@ -132,7 +132,7 @@ function MarkdownEditor({ value, onChangeText, placeholder, label, icon, iconCol
             {showPreview ? (
                 <View style={[styles.previewBox, { borderColor }]}>
                     <Text style={styles.previewLabel}>Aperçu</Text>
-                    <MarkdownRenderer content={value || '*Aucun contenu*'} />
+                    <RichMarkdown content={value || '*Aucun contenu*'} />
                 </View>
             ) : (
                 <TextInput
