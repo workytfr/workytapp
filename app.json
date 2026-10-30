@@ -15,7 +15,7 @@
       ]
     },
     "android": {
-      "package": "fr.workyt.app",
+      "package": "fr.workyt.asso",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "monochromeImage": "./assets/adaptive-monochrome.png",

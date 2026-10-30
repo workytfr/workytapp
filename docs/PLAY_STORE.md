@@ -1,6 +1,6 @@
 # Publication sur le Google Play Store
 
-Package : `fr.workyt.app` · Projet EAS : `@nadsair/workytapp` · Catégorie : **Éducation**
+Package Android : `fr.workyt.asso` (iOS : `fr.workyt.app`) · Projet EAS : `@nadsair/workytapp` · Catégorie : **Éducation**
 
 ## 1. Fiche du Store (textes à copier)
 
