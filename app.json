@@ -18,7 +18,8 @@
       "package": "fr.workyt.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#FF6A1A"
+        "monochromeImage": "./assets/adaptive-monochrome.png",
+        "backgroundColor": "#FDFAF4"
       },
       "intentFilters": [
         {
@@ -111,9 +112,13 @@
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",
-          "imageWidth": 200,
+          "imageWidth": 160,
           "resizeMode": "contain",
-          "backgroundColor": "#FF6A1A"
+          "backgroundColor": "#FDFAF4",
+          "dark": {
+            "image": "./assets/splash-icon.png",
+            "backgroundColor": "#1A1512"
+          }
         }
       ],
       [
@@ -126,7 +131,8 @@
             "./assets/sounds/tambour.wav",
             "./assets/sounds/foxy.wav",
             "./assets/sounds/page.wav"
-          ]
+          ],
+          "icon": "./assets/notification-icon.png"
         }
       ]
     ],
