@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, RefreshControl, Alert, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, RefreshControl, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import Icon from '../../components/Icon';
@@ -13,6 +13,7 @@ import { PageHeader, XpBar, EmptyState, SkeletonList, Eyebrow } from '../../comp
 import { BottomSheet, PrimaryButton } from '../../components/mobile';
 import { success, tapLight } from '../../lib/haptics';
 import { getSiteOrigin } from '../../lib/siteOrigin';
+import { openWeb } from '../../lib/links';
 
 /**
  * Hub de l'aventure (site : /recompenses → HeroPanel, AdventureBoard,
@@ -134,7 +135,7 @@ export default function AdventureHub() {
                         title="Bientôt dans l'app"
                         text="L'aventure (héros, quiz du jour, calendrier, quêtes) arrive dans l'application. En attendant, elle t'attend sur workyt.fr."
                         actionLabel="Ouvrir sur workyt.fr"
-                        onAction={() => Linking.openURL(`${getSiteOrigin()}/recompenses`)}
+                        onAction={() => openWeb(`${getSiteOrigin()}/recompenses`, 'Récompenses')}
                     />
                 ) : (
                     <View style={s.body}>

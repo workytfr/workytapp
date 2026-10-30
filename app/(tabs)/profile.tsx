@@ -425,6 +425,9 @@ export default function ProfileScreen() {
                             <Icon name="log-out-outline" size={20} color="#fff" />
                             <Text style={styles.logoutText}>Se déconnecter</Text>
                         </TouchableOpacity>
+                        <TouchableOpacity style={styles.deleteLink} onPress={() => router.push('/supprimer-compte')} hitSlop={8}>
+                            <Text style={styles.deleteLinkText}>Supprimer mon compte</Text>
+                        </TouchableOpacity>
                     </View>
                 )}
             </ScrollView>
@@ -591,6 +594,8 @@ function createStyles(colors: ReturnType<typeof useColors>) {
             backgroundColor: colors.error, marginTop: spacing.sm, paddingVertical: spacing.md, borderRadius: radius.lg, ...shadows.sm,
         },
         logoutText: { fontFamily: typography.fontFamily.heading, color: '#fff', fontSize: typography.size.base },
+        deleteLink: { alignSelf: 'center', marginTop: spacing.lg, padding: spacing.sm },
+        deleteLinkText: { fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: colors.textMuted, textDecorationLine: 'underline' },
 
         modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
         modalSheet: { backgroundColor: colors.background, borderTopLeftRadius: radius['2xl'], borderTopRightRadius: radius['2xl'], paddingHorizontal: spacing.lg, paddingTop: spacing.sm, maxHeight: '80%' },

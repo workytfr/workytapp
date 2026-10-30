@@ -5,7 +5,7 @@
  * pas encore ouverte au jeton de l'app, et bandeau d'erreur métier.
  */
 import { useMemo } from 'react';
-import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet, Linking, type StyleProp, type ViewStyle } from 'react-native';
+import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import Icon from './Icon';
@@ -14,9 +14,10 @@ import { useColors } from '../lib/useColors';
 import { radius, spacing, typography, type ThemeColors } from '../lib/theme';
 import { getSiteOrigin } from '../lib/siteOrigin';
 import { tapLight } from '../lib/haptics';
+import { openWeb } from '../lib/links';
 
 export function openOnSite(path: string) {
-    Linking.openURL(`${getSiteOrigin()}${path}`).catch(() => {});
+    openWeb(`${getSiteOrigin()}${path}`);
 }
 
 /** Écran plein : en-tête + contenu défilant (pull-to-refresh) + bouton retour */

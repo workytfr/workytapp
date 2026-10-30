@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import Icon from '../../components/Icon';
@@ -13,6 +13,7 @@ import { EmptyState, XpBar } from '../../components/wk';
 import { PrimaryButton } from '../../components/mobile';
 import { error as hapticError, success, tapMedium } from '../../lib/haptics';
 import { getSiteOrigin } from '../../lib/siteOrigin';
+import { openWeb } from '../../lib/links';
 
 /**
  * Quiz du jour façon combat (site : components/adventure/rpg/BattleModal) :
@@ -120,7 +121,7 @@ export default function DailyQuizBattle() {
                             ? 'Le quiz du jour arrive dans l’application. En attendant, il t’attend sur workyt.fr.'
                             : 'Aucun quiz n’est publié pour aujourd’hui. Reviens demain !'}
                         actionLabel={unavailable ? 'Ouvrir sur workyt.fr' : 'Retour'}
-                        onAction={unavailable ? () => Linking.openURL(`${getSiteOrigin()}/recompenses`) : () => router.back()}
+                        onAction={unavailable ? () => openWeb(`${getSiteOrigin()}/recompenses`, 'Récompenses') : () => router.back()}
                     />
                 </View>
             </View>

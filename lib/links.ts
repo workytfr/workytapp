@@ -6,8 +6,9 @@ import { getSiteOrigin } from './siteOrigin';
  * Ouverture des liens affichés dans les contenus (forum, fiches, leçons…).
  *
  * Les adresses workyt.fr que l'app sait afficher (question du forum, fiche,
- * profil membre, cours…) sont ouvertes DANS l'app via expo-router ; tout le
- * reste part dans le navigateur. Les mentions `@pseudo` du forum sont des
+ * profil membre, cours…) sont ouvertes DANS l'app via expo-router ; les
+ * autres pages workyt.fr (blog, pages légales…) s'ouvrent dans la page web
+ * intégrée (écran /web) ; seuls les sites externes partent dans le navigateur. Les mentions `@pseudo` du forum sont des
  * liens `/compte/<id>` → écran `/membre/<id>`.
  */
 
@@ -85,18 +86,36 @@ export function appPathForUrl(href: string): string | null {
     }
 }
 
-/** Ouvre un lien : écran de l'app si possible, sinon navigateur / appli système. */
+/** Vrai pour une adresse du site Workyt (absolue ou relative). */
+export function isSiteUrl(href: string): boolean {
+    try {
+        const url = new URL(href, getSiteOrigin());
+        return (url.protocol === 'https:' || url.protocol === 'http:') && siteHosts().has(url.host);
+    } catch {
+        return false;
+    }
+}
+
+/** Ouvre une page du site dans la page web intégrée, sans quitter l'app. */
+export function openWeb(href: string, title?: string): void {
+    let target = href;
+    try { target = new URL(href, getSiteOrigin()).toString(); } catch { /* URL brute */ }
+    router.push({ pathname: '/web', params: { url: target, ...(title ? { title } : {}) } } as Href);
+}
+
+/**
+ * Ouvre un lien : écran de l'app si possible, page web intégrée pour le
+ * reste de workyt.fr, navigateur / appli système pour les autres sites.
+ */
 export function openLink(href: string): void {
     const path = appPathForUrl(href);
     if (path) {
         router.push(path as Href);
         return;
     }
-    let target = href;
-    try {
-        target = new URL(href, getSiteOrigin()).toString();
-    } catch {
-        // on tente l'URL brute
+    if (isSiteUrl(href)) {
+        openWeb(href);
+        return;
     }
-    Linking.openURL(target).catch(() => {});
+    Linking.openURL(href).catch(() => {});
 }

@@ -11,6 +11,7 @@ import {
     ScrollView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useRouter } from 'expo-router';
 import Icon from '../../components/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../lib/auth';
@@ -22,6 +23,7 @@ const logo = require('../../assets/workyt-logo.png');
 
 export default function LoginScreen() {
     const { signIn } = useAuth();
+    const router = useRouter();
     const colors = useColors();
     const insets = useSafeAreaInsets();
     const styles = useMemo(() => createStyles(colors), [colors]);
@@ -158,7 +160,7 @@ export default function LoginScreen() {
                             </View>
                         </View>
 
-                        <TouchableOpacity style={styles.forgot} hitSlop={8}>
+                        <TouchableOpacity style={styles.forgot} hitSlop={8} onPress={() => router.push('/auth/mot-de-passe')}>
                             <Text style={styles.forgotText}>Mot de passe oublié ?</Text>
                         </TouchableOpacity>
 
@@ -168,23 +170,12 @@ export default function LoginScreen() {
                             onPress={handleLogin}
                             disabled={loading || !canSubmit}
                         />
-
-                        <View style={styles.divider}>
-                            <View style={styles.dividerLine} />
-                            <Text style={styles.dividerText}>ou</Text>
-                            <View style={styles.dividerLine} />
-                        </View>
-
-                        <TouchableOpacity style={styles.discordBtn} activeOpacity={0.85}>
-                            <Icon name="logo-discord" size={20} color="#fff" />
-                            <Text style={styles.discordText}>Continuer avec Discord</Text>
-                        </TouchableOpacity>
                     </View>
 
                     {/* Footer */}
                     <View style={styles.footer}>
                         <Text style={styles.footerText}>Pas encore de compte ?</Text>
-                        <TouchableOpacity hitSlop={8}>
+                        <TouchableOpacity hitSlop={8} onPress={() => router.push('/auth/inscription')}>
                             <Text style={styles.footerLink}>S'inscrire</Text>
                         </TouchableOpacity>
                     </View>
@@ -312,37 +303,6 @@ function createStyles(colors: ReturnType<typeof useColors>) {
             fontFamily: typography.fontFamily.semiBold,
             fontSize: typography.size.sm,
             color: colors.primary,
-        },
-        divider: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: spacing.md,
-            marginVertical: spacing.lg,
-        },
-        dividerLine: {
-            flex: 1,
-            height: 1,
-            backgroundColor: colors.border,
-        },
-        dividerText: {
-            fontFamily: typography.fontFamily.medium,
-            fontSize: typography.size.sm,
-            color: colors.textMuted,
-        },
-        discordBtn: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: spacing.sm,
-            backgroundColor: '#5865F2',
-            paddingVertical: spacing.md,
-            minHeight: 52,
-            borderRadius: radius.lg,
-        },
-        discordText: {
-            fontFamily: typography.fontFamily.semiBold,
-            color: '#fff',
-            fontSize: typography.size.lg,
         },
         footer: {
             flexDirection: 'row',

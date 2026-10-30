@@ -1,7 +1,18 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    View, Text, StyleSheet, FlatList, ScrollView, Pressable, TextInput, Image, Alert, Linking,
-    KeyboardAvoidingView, Platform, ActivityIndicator, AppState,
+    View,
+    Text,
+    StyleSheet,
+    FlatList,
+    ScrollView,
+    Pressable,
+    TextInput,
+    Image,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ActivityIndicator,
+    AppState,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -23,6 +34,7 @@ import Avatar from '../../components/Avatar';
 import MarkdownRenderer from '../../components/MarkdownRenderer';
 import TypingIndicator from '../../components/TypingIndicator';
 import { ChipTabs, EmptyState, Eyebrow, SkeletonList, StatusPill, XpBar } from '../../components/wk';
+import { openLink, openWeb } from '../../lib/links';
 
 type Tab = 'chat' | 'plan';
 const POLL_MS = 30_000;
@@ -96,7 +108,7 @@ export default function SuiviWorkspaceScreen() {
             "Le signalement se fait sur le site : la modération pourra relire la conversation. Si tu es en danger, appelle le 119 ou le 3018.",
             [
                 { text: 'Annuler', style: 'cancel' },
-                { text: 'Ouvrir le site', onPress: () => Linking.openURL(`${getSiteOrigin()}/suivi/${suiviId}`) },
+                { text: 'Ouvrir le site', onPress: () => openWeb(`${getSiteOrigin()}/suivi/${suiviId}`, 'Suivi') },
             ],
         );
     }, [suiviId]);
@@ -136,7 +148,7 @@ export default function SuiviWorkspaceScreen() {
                     title="Espace bénévole sur le site"
                     text="L'application est réservée aux élèves. Accompagne tes élèves depuis workyt.fr."
                     actionLabel="Ouvrir le site"
-                    onAction={() => Linking.openURL(`${getSiteOrigin()}/suivi/${suiviId}`)}
+                    onAction={() => openWeb(`${getSiteOrigin()}/suivi/${suiviId}`, 'Suivi')}
                 />
             </View>
         );
@@ -563,7 +575,7 @@ function PlanView({ detail, s, colors, bottomInset, onChanged }: { detail: Mento
     const openResource = (a: Assignment) => {
         const route = appRouteForResource(a.url, a.title);
         if (route) router.push(route as any);
-        else Linking.openURL(`${getSiteOrigin()}${a.url}`);
+        else openLink(`${getSiteOrigin()}${a.url}`);
     };
 
     return (

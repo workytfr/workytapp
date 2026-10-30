@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Image, Linking, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Image, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import Icon from '../../components/Icon';
@@ -22,6 +22,7 @@ import { getRecentCourse, type RecentCourse } from '../../lib/recent';
 import { getStreak, getDailyQuiz, getQuests, isUnavailable, type Quest, type DailyQuiz } from '../../lib/gamification';
 import { tapLight } from '../../lib/haptics';
 import { refreshReminders } from '../../lib/notifications';
+import { openLink } from '../../lib/links';
 
 type IconName = string;
 
@@ -334,7 +335,7 @@ function LiveBanner({ live, s, colors }: { live: LiveStatus; s: Styles; colors: 
         ? new Date(live.scheduledAt).toLocaleString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
         : null;
     return (
-        <Pressable style={s.live} onPress={() => url && Linking.openURL(url)} disabled={!url}>
+        <Pressable style={s.live} onPress={() => url && openLink(url)} disabled={!url}>
             {live.thumbnail ? <Image source={{ uri: live.thumbnail }} style={s.liveThumb} /> : null}
             <View style={s.flex}>
                 <View style={[s.liveTag, { backgroundColor: isLive ? colors.error : colors.ink }]}>

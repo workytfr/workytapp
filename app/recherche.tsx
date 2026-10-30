@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TextInput, Pressable, Linking, ActivityIndicator, Keyboard } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TextInput, Pressable, ActivityIndicator, Keyboard } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import Icon from '../components/Icon';
@@ -7,6 +7,7 @@ import { useColors } from '../lib/useColors';
 import { spacing, radius, typography, type ThemeColors } from '../lib/theme';
 import { searchAll, type SearchCategory, type SearchResult } from '../lib/api';
 import { ChipTabs, EmptyState } from '../components/wk';
+import { openLink } from '../lib/links';
 
 type IconName = string;
 
@@ -62,7 +63,7 @@ export default function SearchScreen() {
 
     const open = useCallback((r: SearchResult) => {
         Keyboard.dismiss();
-        if (r.type === 'blog' || r.external) { Linking.openURL(r.url); return; }
+        if (r.type === 'blog' || r.external) { openLink(r.url); return; }
         if (r.type === 'forum') router.push(`/forum/${r.id}`);
         else if (r.type === 'fiches') router.push(`/fiches/${r.id}`);
         else if (r.type === 'cours') router.push(`/cours/${r.id}`);

@@ -68,11 +68,12 @@ function RootLayout() {
     useEffect(() => {
         if (!appReady || auth.isLoading) return;
 
-        const inAuthGroup = segments[0] === 'auth';
+        // Pages publiques : connexion/inscription et page web intégrée (politique…)
+        const inAuthGroup = segments[0] === 'auth' || segments[0] === 'web';
 
         if (!auth.isAuthenticated && !inAuthGroup) {
             router.replace('/auth/login');
-        } else if (auth.isAuthenticated && inAuthGroup) {
+        } else if (auth.isAuthenticated && segments[0] === 'auth') {
             router.replace('/(tabs)');
         }
     }, [auth.isAuthenticated, auth.isLoading, segments, appReady]);
