@@ -293,7 +293,11 @@ export async function getCourses(params: { search?: string; niveau?: string; mat
     if (params.matiere) qs.set('matiere', params.matiere);
     qs.set('page', String(params.page ?? 1));
     qs.set('limit', String(params.limit ?? 20));
-    return cachedGet<{ total: number; page: number; limit: number; courses: CourseListItem[] }>(`/cours?${qs.toString()}`, 5 * 60_000, params.force);
+    // Catalogue public : les cours en attente de vérification/publication n'y
+    // figurent pas, même pour un compte de l'équipe (comme la page /cours du site)
+    qs.set('public', '1');
+    const data = await cachedGet<{ total: number; page: number; limit: number; courses: CourseListItem[] }>(`/cours?${qs.toString()}`, 5 * 60_000, params.force);
+    return { ...data, courses: (data.courses || []).filter((c) => !c.status || c.status === 'publie') };
 }
 
 /** Arbre complet d'un cours (sections + titres leçons/exos/quiz). GET /api/cours/[id]/full */
